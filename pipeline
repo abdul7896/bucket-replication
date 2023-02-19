@@ -1,0 +1,68 @@
+# Create the S3 bucket to store the code artifact
+resource "aws_s3_bucket" "code_bucket" {
+  bucket = "my-code-bucket"
+  # Add any other necessary S3 bucket configuration options here
+}
+
+# Create the CodeCommit repository to store the source code
+resource "aws_codecommit_repository" "my_repo" {
+  repository_name = "my-repo"
+  # Add any other necessary CodeCommit repository configuration options here
+}
+
+# Create the CodePipeline pipeline
+resource "aws_codepipeline" "my_pipeline" {
+  name = "my-pipeline"
+
+  # Set up the pipeline's source stage to watch for changes in the CodeCommit repository
+  stage {
+    name = "Source"
+    action {
+      name            = "SourceAction"
+      category        = "Source"
+      owner           = "AWS"
+      provider        = "CodeCommit"
+      version         = "1"
+      output_artifacts = ["source_output"]
+
+      configuration = {
+        RepositoryName = aws_codecommit_repository.my_repo.name
+        BranchName     = "master"
+      }
+    }
+  }
+
+  # Set up the pipeline's deploy stage to deploy the code from the S3 bucket to the EC2 instance
+  stage {
+    name = "Deploy"
+    action {
+      name            = "DeployAction"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      input_artifacts = ["source_output"]
+      version         = "1"
+
+      configuration = {
+        ApplicationName = "my-app"
+        DeploymentGroupName = "my-deployment-group"
+      }
+    }
+  }
+
+  # Set up the pipeline's artifact store to use the S3 bucket
+  artifact_store {
+    location = aws_s3_bucket.code_bucket.bucket
+    type     = "S3"
+  }
+}
+
+# Create a CodePipeline webhook to automatically start the pipeline on changes to the CodeCommit repository
+resource "aws_codecommit_trigger" "my_webhook" {
+  repository_name = aws_codecommit_repository.my_repo.name
+  trigger_name    = "my-webhook"
+  events          = ["all"]
+
+  target_arn = aws_codepipeline.my_pipeline.arn
+  target_pipeline_version = aws_codepipeline.my_pipeline.stage.0.revision
+}
