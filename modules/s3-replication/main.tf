@@ -2,6 +2,11 @@
 resource "aws_s3_bucket" "source_bucket" {
   bucket        = var.source_bucket_name
   force_destroy = true  # Allow bucket to be destroyed even if not empty
+  
+  tags = {
+    Name        = "My source bucket"
+    Environment = "Dev"
+  }
 }
 
 # Configure server-side encryption for the source bucket
@@ -20,6 +25,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "source" {
 resource "aws_s3_bucket" "replica_bucket" {
   bucket        = var.replica_bucket_name
   force_destroy = true  # Allow bucket to be destroyed even if not empty
+   tags = {
+    Name        = "My replica bucket"
+    Environment = "Dev"
+  }
 }
 
 # Configure server-side encryption for the replica bucket
@@ -38,6 +47,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "replica" {
 resource "aws_s3_bucket" "log_bucket" {
   bucket        = var.log_bucket_name
   force_destroy = true  # Allow bucket to be destroyed even if not empty
+   tags = {
+    Name        = "My Log bucket"
+    Environment = "Dev"
+  }
 }
 
 # Configure server-side encryption for the logging bucket
@@ -56,7 +69,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "log" {
 resource "aws_s3_bucket_logging" "source_bucket_logging" {
   bucket        = aws_s3_bucket.source_bucket.id  # Reference the source bucket by its ID
   target_bucket = aws_s3_bucket.log_bucket.id     # Reference the logging bucket by its ID
-  target_prefix = "log/"                          # Use "log/" as prefix for the logs in the logging bucket
+  target_prefix = "source_logs/"                          # Use "log/" as prefix for the logs in the logging bucket
 }
 
 resource "aws_s3_bucket_logging" "replica_bucket_logging" {
@@ -68,12 +81,25 @@ resource "aws_s3_bucket_logging" "replica_bucket_logging" {
 # Create KMS keys for source and replica buckets
 resource "aws_kms_key" "source" {
   deletion_window_in_days = 10  # Set the key retention period to 10 days
+  description             = "Key for encrypting data in the source S3 bucket"  # Optional description of the key
+  enable_key_rotation     = true  # Enable automatic rotation of the key
+  is_enabled              = true  # Enable the key for use
+  tags = {
+    Name        = "My source KMS Key"
+    Environment = "Dev"
+  }  
 }
 
 resource "aws_kms_key" "replica" {
-  deletion_window_in_days = 10  # Set the key retention period to 10 days
+  deletion_window_in_days = 10
+  description             = "Key for encrypting data in the replica S3 bucket"
+  enable_key_rotation     = true
+  is_enabled              = true
+  tags = {
+    Name        = "My replica KMS Key"
+    Environment = "Dev"
+  } 
 }
-
 # Create KMS aliases for source and replica keys
 resource "aws_kms_alias" "source" {
   name          = "alias/source-key-alias"
@@ -87,7 +113,14 @@ resource "aws_kms_alias" "replica" {
 
 # Create KMS key for logging
 resource "aws_kms_key" "log" {
-  deletion_window_in_days = 10  # Set the key retention period to 10 days
+  deletion_window_in_days = 10
+  description             = "Key for encrypting data in the logging S3 bucket"
+  enable_key_rotation     = true
+  is_enabled              = true
+  tags = {
+    Name        = "My log KMS Key"
+    Environment = "Dev"
+  } 
 }
 
 # Create KMS alias for logging key
